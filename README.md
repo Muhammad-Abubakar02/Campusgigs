@@ -68,7 +68,6 @@ campusgigs/
 │       ├── api.js              # Axios instance with JWT interceptor
 │       ├── App.jsx             # Routes
 │       └── main.jsx
-├── screenshots/
 └── README.md
 ```
 
