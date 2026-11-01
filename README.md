@@ -223,10 +223,6 @@ Open http://localhost:5173.
 - Verified error handling for duplicate email, wrong password and missing/invalid/expired tokens.
 
 
-**MongoDB Atlas — `users` collection (password stored as bcrypt hash)**
-
-![Atlas users](screenshots/05-mongodb-users.png)
-
 ---
 
 ## Next Steps (Modules 2–4)
