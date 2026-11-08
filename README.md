@@ -7,25 +7,51 @@ CampusGigs is a MERN-stack web application where university students can post sh
 
 ---
 
-## Module 1 — Summary of Work
+## Project Progress
+
+| Module | Dates | Focus | Status |
+|---|---|---|---|
+| **Module 1** | Oct 26 – Nov 01 | Setup, database schemas, authentication, protected routes, React layout | ✅ Complete |
+| **Module 2** | Nov 02 – Nov 08 | Gig CRUD, listing/details pages, apply to gig, student dashboard | ✅ Complete |
+| Module 3 | Nov 09 – Nov 15 | Tag filters and search, applicant tracking, status management, messaging | ⏳ Upcoming |
+| Module 4 | Nov 16 – Nov 22 | Responsive polish, testing, deployment, final documentation | ⏳ Upcoming |
+
+---
+
+## Module 2 — Summary of Work
 
 ### Objectives
-1. Set up the Node/Express backend and React frontend.
-2. Connect the backend to a cloud database (MongoDB Atlas).
-3. Design all database schemas for the full project up front.
-4. Implement secure user registration and login (password hashing + JWT).
-5. Protect private routes on both backend and frontend.
-6. Build the basic React layout and authentication pages.
+1. Build complete CRUD (create, read, update, delete) for gigs with server-side validation.
+2. Let clients post gigs and freelancers apply to them.
+3. Build the gig listing and gig details pages in React.
+4. Build a role-based student dashboard showing posted gigs (clients) and applied gigs (freelancers).
+5. Redesign the home page.
 
 ### What was delivered
-- **Backend:** Express server with CORS, JSON parsing, 404 and error handlers, environment-based config.
-- **Database:** MongoDB Atlas connection through Mongoose; four schemas (User, Gig, Application, Message) with validation, defaults and indexes.
-- **Authentication:** Register and login endpoints, passwords hashed with **bcrypt**, sessions handled with **JWT** (7-day expiry).
-- **Authorization:** `protect` middleware (valid token required) and `authorize(role)` middleware (role-based access) ready for later modules.
-- **Roles:** Two user roles — `client` (posts gigs) and `freelancer` (applies to gigs). A user cannot self-assign any other role.
-- **Frontend:** React (Vite) app with Navbar, Home, Login, Register and Dashboard pages, global `AuthContext`, and a `ProtectedRoute` component that redirects unauthenticated users to the login page.
-- **Session persistence:** The token is stored in `localStorage` and the user session is restored automatically on page refresh through `GET /api/auth/me`.
-- **Validation and error handling:** Server-side validation (required fields, email format, minimum password length, duplicate email) with clear error messages shown in the UI.
+
+**Backend (Express + Mongoose)**
+- Full gig CRUD with role-based access: only **clients** can create gigs, and only the **owner** of a gig can edit or delete it.
+- Server-side validation for every input (title 3–100 characters, description 10–2000 characters, budget 0–1,000,000, up to 8 tags of 20 characters each, valid non-past deadline). Tags are normalised (trimmed, lowercased, de-duplicated).
+- Apply-to-gig feature for **freelancers**: optional cover note (max 1000 characters) and proposed price. Duplicate applications are blocked (HTTP 409, plus a unique database index), and gigs that are not `open` do not accept applications.
+- Freelancers can view all their applications and withdraw a pending one.
+- Deleting a gig also removes its applications and messages (no orphaned data).
+- Invalid ids return 404 instead of crashing; every endpoint returns clear JSON error messages.
+- Public gig list shows only open gigs and exposes only the poster's name and university (no email or password).
+
+**Frontend (React)**
+- **Home page** redesigned: hero section, categories, "How it works", and the latest gigs.
+- **Browse Gigs** page with gig cards (title, budget, tags, poster, deadline) and an empty state.
+- **Gig details** page: full description, applicants count, status badge, and a context-aware action area:
+  - owner → Edit / Delete,
+  - freelancer → apply form, or the status of their application with a Withdraw button,
+  - visitor → "Login to apply" (returns to the gig after login),
+  - other client → informational message.
+- **Create / Edit gig** pages sharing one form component, with server validation errors shown in the form.
+- **Role-based dashboard**
+  - Client: stats (gigs posted, open gigs, total applicants) and a list of their gigs with applicant counts, Edit and Delete actions.
+  - Freelancer: stats (applications, pending, accepted) and a list of applications with status, price and Withdraw.
+- `ProtectedRoute` now supports role restrictions (`roles={['client']}`) and remembers the page the user wanted before logging in.
+- Responsive layout, loading states, empty states and confirmation dialogs for destructive actions.
 
 ---
 
@@ -46,29 +72,26 @@ CampusGigs is a MERN-stack web application where university students can post sh
 ```
 campusgigs/
 ├── server/
-│   ├── config/
-│   │   └── db.js               # MongoDB Atlas connection
+│   ├── config/db.js                # MongoDB Atlas connection
 │   ├── middleware/
-│   │   └── auth.js             # protect + authorize(role)
-│   ├── models/
-│   │   ├── User.js
-│   │   ├── Gig.js
-│   │   ├── Application.js
-│   │   └── Message.js
+│   │   ├── auth.js                 # protect + authorize(role)
+│   │   └── validateId.js           # 404 for invalid ObjectIds
+│   ├── models/                     # User, Gig, Application, Message
 │   ├── routes/
-│   │   └── auth.js             # register, login, me
-│   ├── app.js                  # Express app (middleware + routes)
-│   ├── index.js                # Entry point
-│   └── .env.example
-├── client/
-│   └── src/
-│       ├── components/         # Navbar, ProtectedRoute
-│       ├── context/            # AuthContext (login, register, logout, session restore)
-│       ├── pages/              # Home, Login, Register, Dashboard
-│       ├── api.js              # Axios instance with JWT interceptor
-│       ├── App.jsx             # Routes
-│       └── main.jsx
-└── README.md
+│   │   ├── auth.js                 # register, login, me
+│   │   ├── gigs.js                 # gig CRUD + apply
+│   │   └── applications.js         # my applications, withdraw
+│   ├── app.js
+│   └── index.js
+└── client/
+    └── src/
+        ├── components/             # Navbar, ProtectedRoute, GigCard, GigForm, StatusBadge
+        ├── context/                # AuthContext
+        ├── pages/                  # Home, Login, Register, Dashboard, Gigs,
+        │                           # GigDetails, CreateGig, EditGig
+        ├── utils/format.js         # currency/date helpers
+        ├── api.js                  # Axios instance with JWT interceptor
+        └── App.jsx                 # Routes
 ```
 
 ---
@@ -80,18 +103,17 @@ campusgigs/
 |---|---|---|
 | name | String | required, min 2 characters |
 | email | String | required, unique, lowercase, validated format |
-| password | String | required, min 6 characters, **hashed with bcrypt**, never returned in queries by default |
+| password | String | required, min 6 characters, **bcrypt hash**, hidden from queries by default |
 | role | String | `client` or `freelancer` (default `freelancer`) |
 | university | String | optional |
 | skills | [String] | optional |
-| createdAt / updatedAt | Date | automatic timestamps |
 
 ### Gig
 | Field | Type | Notes |
 |---|---|---|
 | title, description | String | required |
 | budget | Number | required, min 0 |
-| tags | [String] | lowercase, indexed (used for filters in Module 3) |
+| tags | [String] | lowercase, indexed |
 | status | String | `open`, `in-progress`, `completed` (default `open`) |
 | postedBy | ObjectId → User | required |
 | deadline | Date | optional |
@@ -105,7 +127,7 @@ campusgigs/
 | proposedPrice | Number | optional |
 | status | String | `pending`, `accepted`, `rejected` (default `pending`) |
 
-A unique compound index on `(gig, applicant)` prevents a user from applying to the same gig twice.
+A unique compound index on `(gig, applicant)` prevents applying to the same gig twice.
 
 ### Message
 | Field | Type | Notes |
@@ -115,62 +137,61 @@ A unique compound index on `(gig, applicant)` prevents a user from applying to t
 | text | String | required |
 | read | Boolean | default `false` |
 
+(Messaging is implemented in Module 3.)
+
 ---
 
-## API Endpoints (Module 1)
+## API Endpoints
 
 Base URL: `http://localhost:5000/api`
 
+### Auth (Module 1)
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
 | POST | `/auth/register` | Public | Create an account, returns user + JWT |
 | POST | `/auth/login` | Public | Log in, returns user + JWT |
-| GET | `/auth/me` | Protected | Returns the logged-in user (header: `Authorization: Bearer <token>`) |
+| GET | `/auth/me` | Protected | Current user |
 
-**Register — request body**
+### Gigs (Module 2)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/gigs` | Public | List open gigs (newest first) |
+| GET | `/gigs/mine` | Client | My gigs with applicant counts |
+| GET | `/gigs/:id` | Public | Gig details with applicants count |
+| POST | `/gigs` | Client | Create a gig |
+| PUT | `/gigs/:id` | Owner | Edit a gig |
+| DELETE | `/gigs/:id` | Owner | Delete a gig and its applications |
+| POST | `/gigs/:id/apply` | Freelancer | Apply to a gig (cover note, proposed price) |
+| GET | `/gigs/:id/application` | Logged in | My application for this gig (or `null`) |
+
+### Applications (Module 2)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/applications/mine` | Freelancer | Gigs I applied to |
+| DELETE | `/applications/:id` | Applicant | Withdraw a pending application |
+
+Protected endpoints need the header `Authorization: Bearer <token>`.
+
+**Create gig — request body**
 ```json
 {
-  "name": "Muhammad Abu Bakar",
-  "email": "student@example.com",
-  "password": "secret123",
-  "university": "NFC IET Multan",
-  "role": "client"
+  "title": "Design a poster for our society dinner",
+  "description": "We need an A3 poster for the annual dinner. Print ready PDF.",
+  "budget": 2500,
+  "tags": "design, poster, photoshop",
+  "deadline": "2026-12-31"
 }
 ```
 
-**Success response (201)**
-```json
-{
-  "token": "<jwt>",
-  "user": {
-    "id": "...",
-    "name": "Muhammad Abu Bakar",
-    "email": "student@example.com",
-    "role": "client",
-    "university": "NFC IET Multan"
-  }
-}
-```
-
-**Error responses**
+**Common error responses**
 
 | Status | When |
 |---|---|
-| 400 | Missing fields, invalid email, password shorter than 6 characters |
-| 401 | Wrong email/password, missing, invalid or expired token |
-| 403 | Logged-in user's role is not allowed for the route |
-| 409 | Email already registered |
-
----
-
-## Authentication Flow
-
-1. The user registers or logs in from the React app.
-2. The server hashes the password (bcrypt, 10 rounds) on registration and verifies it on login.
-3. The server returns a signed **JWT**; the client stores it in `localStorage`.
-4. An Axios interceptor attaches `Authorization: Bearer <token>` to every request.
-5. Protected API routes verify the token (`protect` middleware); protected React pages are wrapped in `ProtectedRoute`.
-6. On page refresh, the app calls `/auth/me` to restore the session.
+| 400 | Validation failed, or the gig is not open for applications |
+| 401 | Missing, invalid or expired token |
+| 403 | Wrong role, or not the owner of the gig / application |
+| 404 | Gig / application not found or invalid id |
+| 409 | Email already registered, or already applied to this gig |
 
 ---
 
@@ -197,7 +218,6 @@ Start the server:
 ```bash
 npm run dev
 ```
-Expected output: `MongoDB connected: ...` and `Server running on port 5000`.
 
 ### 2. Frontend
 ```bash
@@ -208,25 +228,23 @@ npm run dev
 Open http://localhost:5173.
 
 ### Troubleshooting
-- **`querySrv ECONNREFUSED` when connecting to Atlas:** some ISPs block SRV DNS lookups. The server already sets public DNS servers (`8.8.8.8`, `1.1.1.1`) in `server/index.js` to avoid this.
+- **`querySrv ECONNREFUSED` when connecting to Atlas:** some ISPs block SRV DNS lookups. The server sets public DNS servers (`8.8.8.8`, `1.1.1.1`) in `server/index.js` to avoid this.
 - **`bad auth` error:** the username/password in `MONGO_URI` is wrong; reset the database user's password in Atlas > Database Access.
 - **CORS error in the browser:** make sure `CLIENT_URL` in `server/.env` matches the address of the React app.
 
 ---
 
-## Testing Done in Module 1
+## Testing Done (Modules 1–2)
 
-- Registered a new user through the UI and landed on the protected dashboard.
-- Logged out and logged back in successfully.
-- Verified in MongoDB Atlas that the user document is stored with a **hashed** password.
-- Verified that visiting `/dashboard` while logged out redirects to `/login`.
-- Verified error handling for duplicate email, wrong password and missing/invalid/expired tokens.
-
+- Registration and login for both roles; protected pages redirect to login when logged out.
+- **Client flow:** post a gig, see it on the dashboard, edit it, delete it; validation errors are shown in the form.
+- **Freelancer flow:** browse gigs, open details, apply with a cover note and price, see the application on the dashboard, withdraw it.
+- Access rules: a freelancer cannot post gigs; a client cannot apply; another client cannot edit or delete someone else's gig; duplicate applications are rejected.
+- Password stored as a bcrypt hash in MongoDB Atlas.
 
 ---
 
-## Next Steps (Modules 2–4)
+## Next Steps (Modules 3–4)
 
-- **Module 2:** Gig CRUD (create, view, edit, delete), gig listing and details pages, apply-to-gig feature, student dashboard with posted/applied gigs.
 - **Module 3:** Tag-based filters and search, applicant tracking dashboard (accept/reject), gig status management, in-app message threads.
 - **Module 4:** Responsive UI polish, end-to-end testing, security checks, deployment (Render + MongoDB Atlas), final documentation.
