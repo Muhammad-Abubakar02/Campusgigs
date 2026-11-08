@@ -8,6 +8,8 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.json({ message: 'CampusGigs API is running' }));
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/gigs', require('./routes/gigs'));
+app.use('/api/applications', require('./routes/applications'));
 
 // 404 + error handlers
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
