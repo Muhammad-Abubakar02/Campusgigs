@@ -19,6 +19,7 @@ export default function GigDetails() {
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState({ coverNote: '', proposedPrice: '' });
   const [busy, setBusy] = useState(false);
+  const [applicants, setApplicants] = useState([]);
 
   const isFreelancer = user?.role === 'freelancer';
   const isOwner = !!user && !!gig && String(gig.postedBy?._id) === String(user.id);
@@ -42,6 +43,45 @@ export default function GigDetails() {
       .then((res) => setApplication(res.data.application))
       .catch(() => {});
   }, [id, isFreelancer]);
+
+  const loadApplicants = () =>
+    api
+      .get(`/gigs/${id}/applications`)
+      .then((res) => setApplicants(res.data.applications))
+      .catch((err) => setActionError(errorMessage(err, 'Could not load applicants')));
+
+  useEffect(() => {
+    if (isOwner) loadApplicants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isOwner]);
+
+  const handleReview = async (app, status) => {
+    const verb = status === 'accepted' ? 'Accept' : 'Reject';
+    if (!window.confirm(`${verb} ${app.applicant.name}?`)) return;
+    setActionError('');
+    try {
+      const res = await api.patch(`/applications/${app._id}/status`, { status });
+      setGig((g) => ({ ...g, status: res.data.gigStatus }));
+      setNotice(status === 'accepted' ? `${app.applicant.name} accepted. The gig is now in progress.` : `${app.applicant.name} rejected.`);
+      loadApplicants();
+    } catch (err) {
+      setActionError(errorMessage(err, 'Could not update the application'));
+    }
+  };
+
+  const handleGigStatus = async (status) => {
+    const text = status === 'completed' ? 'Mark this gig as completed?' : 'Reopen this gig? The accepted applicant goes back to pending.';
+    if (!window.confirm(text)) return;
+    setActionError('');
+    try {
+      const res = await api.patch(`/gigs/${id}/status`, { status });
+      setGig((g) => ({ ...g, status: res.data.gig.status }));
+      setNotice(status === 'completed' ? 'Gig marked as completed.' : 'Gig reopened.');
+      loadApplicants();
+    } catch (err) {
+      setActionError(errorMessage(err, 'Could not change the gig status'));
+    }
+  };
 
   const bumpCount = (delta) =>
     setGig((g) => ({ ...g, applicantsCount: Math.max(0, (g.applicantsCount || 0) + delta) }));
@@ -118,7 +158,7 @@ export default function GigDetails() {
 
         <div className="tags">
           {gig.tags.map((t) => (
-            <span key={t} className="tag">#{t}</span>
+            <Link key={t} to={`/gigs?tag=${encodeURIComponent(t)}`} className="tag">#{t}</Link>
           ))}
         </div>
 
@@ -136,10 +176,49 @@ export default function GigDetails() {
             <button className="btn btn-danger" onClick={handleDelete}>Delete gig</button>
           </div>
         )}
+
+        {isOwner && gig.status === 'in-progress' && (
+          <div className="status-bar">
+            <span className="muted">Work in progress:</span>
+            <button className="btn btn-sm" onClick={() => handleGigStatus('completed')}>Mark as completed</button>
+            <button className="btn btn-outline btn-sm" onClick={() => handleGigStatus('open')}>Reopen gig</button>
+          </div>
+        )}
       </div>
 
       {notice && <p className="success">{notice}</p>}
       {actionError && <p className="error">{actionError}</p>}
+
+      {isOwner && (
+        <div className="card panel" id="applicants">
+          <h3>Applicants ({applicants.length})</h3>
+          {applicants.length === 0 && <p className="muted">No one has applied yet.</p>}
+          {applicants.map((a) => (
+            <div key={a._id} className="applicant">
+              <div>
+                <span className="applicant-name">{a.applicant.name}</span>{' '}
+                <StatusBadge status={a.status} />
+                <div className="muted">
+                  {a.applicant.university || 'University not set'}
+                  {a.proposedPrice != null && <> · Price: <b>{formatBudget(a.proposedPrice)}</b></>}
+                  {' · '}Applied {formatDate(a.createdAt)}
+                </div>
+                {a.applicant.skills?.length > 0 && <div className="muted">Skills: {a.applicant.skills.join(', ')}</div>}
+                {a.coverNote && <p className="applicant-note">“{a.coverNote}”</p>}
+              </div>
+              <div className="applicant-actions">
+                {a.status === 'pending' && gig.status === 'open' && (
+                  <>
+                    <button className="btn btn-sm" onClick={() => handleReview(a, 'accepted')}>Accept</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleReview(a, 'rejected')}>Reject</button>
+                  </>
+                )}
+                <Link to={`/messages/${gig._id}/${a.applicant._id}`} className="btn btn-outline btn-sm">Message</Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {!isOwner && (
         <div className="card apply-box">
@@ -163,9 +242,17 @@ export default function GigDetails() {
                 {application.proposedPrice != null && <> · Your price: <b>{formatBudget(application.proposedPrice)}</b></>}
               </p>
               {application.coverNote && <p className="description">“{application.coverNote}”</p>}
-              {application.status === 'pending' && (
-                <button className="btn btn-outline" onClick={handleWithdraw}>Withdraw application</button>
+              {application.status === 'accepted' && (
+                <p className="success">🎉 You were accepted! Message the client to get started.</p>
               )}
+              <div className="form-actions">
+                {application.status === 'pending' && (
+                  <button className="btn btn-outline" onClick={handleWithdraw}>Withdraw application</button>
+                )}
+                {gig.postedBy?._id && (
+                  <Link to={`/messages/${gig._id}/${gig.postedBy._id}`} className="btn">Message client</Link>
+                )}
+              </div>
             </>
           )}
 

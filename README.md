@@ -13,8 +13,43 @@ CampusGigs is a MERN-stack web application where university students can post sh
 |---|---|---|---|
 | **Module 1** | Oct 26 – Nov 01 | Setup, database schemas, authentication, protected routes, React layout | ✅ Complete |
 | **Module 2** | Nov 02 – Nov 08 | Gig CRUD, listing/details pages, apply to gig, student dashboard | ✅ Complete |
-| Module 3 | Nov 09 – Nov 15 | Tag filters and search, applicant tracking, status management, messaging | ⏳ Upcoming |
+| **Module 3** | Nov 09 – Nov 15 | Tag filters and search, applicant tracking, status management, messaging | ✅ Complete |
 | Module 4 | Nov 16 – Nov 22 | Responsive polish, testing, deployment, final documentation | ⏳ Upcoming |
+
+---
+
+## Module 3 — Summary of Work
+
+### Objectives
+1. Let students find gigs quickly with search, tag filters, budget filters, sorting and pagination.
+2. Let clients review applicants and accept or reject them (applicant tracking).
+3. Manage the gig lifecycle: `open` → `in-progress` → `completed`.
+4. Add in-app message threads between a gig owner and an applicant.
+
+### What was delivered
+
+**Search, filters and pagination**
+- `GET /api/gigs` now accepts `q` (searches title, description and tags, case-insensitive), `tag` (comma separated, a gig must have *all* the tags), `minBudget`, `maxBudget`, `sort` (`newest`, `oldest`, `budget_high`, `budget_low`), `page` and `limit`. It returns `{ gigs, total, page, pages }`.
+- Search text is regex-escaped, numeric params are validated and the page number is clamped, so bad input cannot crash the API.
+- `GET /api/gigs/tags` returns the most used tags on open gigs and powers the clickable tag chips.
+- The **Browse Gigs** page has a search box, budget range, sort dropdown, clickable tag chips, "Clear filters" and Previous/Next pagination. All filters live in the URL (for example `/gigs?tag=design&sort=budget_low`), so a filtered view can be shared and the browser back button works.
+- Home page category chips and the tags on a gig page link straight to the filtered list.
+
+**Applicant tracking (accept / reject)**
+- `GET /api/gigs/:id/applications` (owner only) lists everyone who applied, with name, university, skills, cover note and proposed price.
+- `PATCH /api/applications/:id/status` (gig owner only) accepts or rejects a pending application. Accepting moves the gig to **in-progress**; only one applicant can be accepted at a time; reviewed applications cannot be changed again.
+- The gig page has an **Applicants** panel with Accept / Reject / Message buttons. Freelancers see the new status on their dashboard and on the gig page ("You were accepted!").
+
+**Task status management**
+- `PATCH /api/gigs/:id/status` (owner only): `in-progress` → `completed` ("Mark as completed"), or `in-progress` → `open` ("Reopen gig", which sets the accepted applicant back to pending). `completed` is final and a gig cannot be started without accepting someone.
+- Only `open` gigs appear in Browse Gigs and only open gigs accept applications.
+- The client dashboard now shows Posted / Open / In progress / Completed counts and an **Applicants** button on every gig.
+
+**In-app messaging**
+- New `routes/messages.js`: `GET /messages/threads` (inbox), `GET /messages/unread-count`, `GET /messages/:gigId/:userId` (conversation, marks the other person's messages as read) and `POST /messages/:gigId/:userId` (send, max 1000 characters).
+- Access control: a conversation exists only between the gig owner and a person who applied to that gig. Outsiders, other applicants and self-messaging are rejected (403 / 400).
+- Frontend: **Messages** inbox with unread badges and last-message preview, a chat screen with message bubbles, and an unread counter in the navbar. New messages are fetched by polling every 5–10 seconds.
+- Deleting a gig deletes its messages as well.
 
 ---
 
@@ -79,16 +114,17 @@ campusgigs/
 │   ├── models/                     # User, Gig, Application, Message
 │   ├── routes/
 │   │   ├── auth.js                 # register, login, me
-│   │   ├── gigs.js                 # gig CRUD + apply
-│   │   └── applications.js         # my applications, withdraw
+│   │   ├── gigs.js                 # gig CRUD, search/filters, apply, applicants, status
+│   │   ├── applications.js         # my applications, withdraw, accept/reject
+│   │   └── messages.js             # inbox, conversations, send message
 │   ├── app.js
 │   └── index.js
 └── client/
     └── src/
-        ├── components/             # Navbar, ProtectedRoute, GigCard, GigForm, StatusBadge
+        ├── components/             # Navbar (unread badge), ProtectedRoute, GigCard, GigForm, StatusBadge
         ├── context/                # AuthContext
         ├── pages/                  # Home, Login, Register, Dashboard, Gigs,
-        │                           # GigDetails, CreateGig, EditGig
+        │                           # GigDetails, CreateGig, EditGig, Messages, Conversation
         ├── utils/format.js         # currency/date helpers
         ├── api.js                  # Axios instance with JWT interceptor
         └── App.jsx                 # Routes
@@ -137,7 +173,7 @@ A unique compound index on `(gig, applicant)` prevents applying to the same gig 
 | text | String | required |
 | read | Boolean | default `false` |
 
-(Messaging is implemented in Module 3.)
+Messages are used by the in-app messaging feature (Module 3). Conversations are grouped by `(gig, sender, receiver)`.
 
 ---
 
@@ -152,10 +188,11 @@ Base URL: `http://localhost:5000/api`
 | POST | `/auth/login` | Public | Log in, returns user + JWT |
 | GET | `/auth/me` | Protected | Current user |
 
-### Gigs (Module 2)
+### Gigs (Modules 2–3)
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
-| GET | `/gigs` | Public | List open gigs (newest first) |
+| GET | `/gigs` | Public | Open gigs. Query: `q`, `tag`, `minBudget`, `maxBudget`, `sort`, `page`, `limit` |
+| GET | `/gigs/tags` | Public | Most used tags on open gigs (**Module 3**) |
 | GET | `/gigs/mine` | Client | My gigs with applicant counts |
 | GET | `/gigs/:id` | Public | Gig details with applicants count |
 | POST | `/gigs` | Client | Create a gig |
@@ -163,12 +200,23 @@ Base URL: `http://localhost:5000/api`
 | DELETE | `/gigs/:id` | Owner | Delete a gig and its applications |
 | POST | `/gigs/:id/apply` | Freelancer | Apply to a gig (cover note, proposed price) |
 | GET | `/gigs/:id/application` | Logged in | My application for this gig (or `null`) |
+| GET | `/gigs/:id/applications` | Owner | Applicants of my gig (**Module 3**) |
+| PATCH | `/gigs/:id/status` | Owner | `completed` or `open` (reopen) from `in-progress` (**Module 3**) |
 
-### Applications (Module 2)
+### Applications (Modules 2–3)
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
 | GET | `/applications/mine` | Freelancer | Gigs I applied to |
+| PATCH | `/applications/:id/status` | Gig owner | Accept or reject a pending application (**Module 3**) |
 | DELETE | `/applications/:id` | Applicant | Withdraw a pending application |
+
+### Messages (Module 3)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/messages/threads` | Logged in | My conversations with last message and unread count |
+| GET | `/messages/unread-count` | Logged in | Number of unread messages |
+| GET | `/messages/:gigId/:userId` | Participant | Conversation with one person about one gig (marks as read) |
+| POST | `/messages/:gigId/:userId` | Participant | Send a message `{ "text": "..." }` |
 
 Protected endpoints need the header `Authorization: Bearer <token>`.
 
@@ -187,9 +235,9 @@ Protected endpoints need the header `Authorization: Bearer <token>`.
 
 | Status | When |
 |---|---|
-| 400 | Validation failed, or the gig is not open for applications |
+| 400 | Validation failed, invalid status change, or the gig is not open for applications |
 | 401 | Missing, invalid or expired token |
-| 403 | Wrong role, or not the owner of the gig / application |
+| 403 | Wrong role, not the owner of the gig / application, or not part of the conversation |
 | 404 | Gig / application not found or invalid id |
 | 409 | Email already registered, or already applied to this gig |
 
@@ -234,17 +282,21 @@ Open http://localhost:5173.
 
 ---
 
-## Testing Done (Modules 1–2)
+## Testing Done (Modules 1–3)
 
 - Registration and login for both roles; protected pages redirect to login when logged out.
 - **Client flow:** post a gig, see it on the dashboard, edit it, delete it; validation errors are shown in the form.
 - **Freelancer flow:** browse gigs, open details, apply with a cover note and price, see the application on the dashboard, withdraw it.
 - Access rules: a freelancer cannot post gigs; a client cannot apply; another client cannot edit or delete someone else's gig; duplicate applications are rejected.
 - Password stored as a bcrypt hash in MongoDB Atlas.
+- **Module 3 — search & filters:** search by title/tag, single and multiple tag filters, budget range, all four sort orders, pagination and page clamping, regex characters in search, invalid numbers ignored.
+- **Module 3 — applicants:** only the gig owner can list/accept/reject; accepting sets the gig to in-progress and hides it from Browse; a second accept and re-reviewing are blocked; accepted applications cannot be withdrawn; applicant emails are never exposed.
+- **Module 3 — status:** open → completed and manual open → in-progress are rejected; in-progress → open resets the accepted applicant; completed is final.
+- **Module 3 — messaging:** owner ⇄ applicant conversation, unread counts and read receipts, outsiders / other applicants / non-applicants blocked, empty and over-long messages rejected, messages removed when a gig is deleted.
+- Automated checks: 59 API checks for Module 3 (68 for Modules 1–2 still pass) and a 26-step browser test covering the full flow (search → apply → accept/reject → chat → complete) plus a mobile layout check.
 
 ---
 
-## Next Steps (Modules 3–4)
+## Next Steps (Module 4)
 
-- **Module 3:** Tag-based filters and search, applicant tracking dashboard (accept/reject), gig status management, in-app message threads.
 - **Module 4:** Responsive UI polish, end-to-end testing, security checks, deployment (Render + MongoDB Atlas), final documentation.

@@ -9,6 +9,8 @@ import Gigs from './pages/Gigs';
 import GigDetails from './pages/GigDetails';
 import CreateGig from './pages/CreateGig';
 import EditGig from './pages/EditGig';
+import Messages from './pages/Messages';
+import Conversation from './pages/Conversation';
 
 export default function App() {
   return (
@@ -42,6 +44,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages/:gigId/:userId"
+            element={
+              <ProtectedRoute>
+                <Conversation />
               </ProtectedRoute>
             }
           />

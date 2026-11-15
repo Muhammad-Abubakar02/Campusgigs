@@ -38,14 +38,17 @@ function ClientDashboard() {
   };
 
   const applicants = gigs.reduce((sum, g) => sum + g.applicantsCount, 0);
+  const count = (st) => gigs.filter((g) => g.status === st).length;
 
   return (
     <>
-      <div className="stats">
+      <div className="stats stats-4">
         <Stat label="Gigs posted" value={gigs.length} />
-        <Stat label="Open gigs" value={gigs.filter((g) => g.status === 'open').length} />
-        <Stat label="Total applicants" value={applicants} />
+        <Stat label="Open" value={count('open')} />
+        <Stat label="In progress" value={count('in-progress')} />
+        <Stat label="Completed" value={count('completed')} />
       </div>
+      <p className="muted">Total applicants across your gigs: <b>{applicants}</b></p>
 
       <h3 className="section-title">My posted gigs</h3>
       {error && <p className="error">{error}</p>}
@@ -72,6 +75,7 @@ function ClientDashboard() {
               </div>
             </div>
             <div className="list-actions">
+              <Link to={`/gigs/${g._id}#applicants`} className="btn btn-sm">Applicants</Link>
               <Link to={`/gigs/${g._id}/edit`} className="btn btn-outline btn-sm">Edit</Link>
               <button className="btn btn-danger btn-sm" onClick={() => handleDelete(g)}>Delete</button>
             </div>
@@ -140,6 +144,9 @@ function FreelancerDashboard() {
               </div>
             </div>
             <div className="list-actions">
+              {a.gig.postedBy && (
+                <Link to={`/messages/${a.gig._id}/${a.gig.postedBy}`} className="btn btn-outline btn-sm">Message</Link>
+              )}
               {a.status === 'pending' && (
                 <button className="btn btn-outline btn-sm" onClick={() => handleWithdraw(a)}>Withdraw</button>
               )}

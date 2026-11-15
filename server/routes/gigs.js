@@ -53,14 +53,68 @@ function cleanGigInput(body, { requireFuture = false } = {}) {
 
 const isOwner = (gig, user) => String(gig.postedBy) === String(user._id);
 
-// GET /api/gigs  (public) - latest open gigs
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const SORTS = {
+  newest: { createdAt: -1 },
+  oldest: { createdAt: 1 },
+  budget_high: { budget: -1, createdAt: -1 },
+  budget_low: { budget: 1, createdAt: -1 },
+};
+
+const numberParam = (v) => (v !== undefined && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null);
+
+// GET /api/gigs  (public) - open gigs with search, tag/budget filters, sorting and pagination
+// Query: q, tag (comma separated, all must match), minBudget, maxBudget, sort, page, limit
 router.get('/', async (req, res) => {
-  const gigs = await Gig.find({ status: 'open' })
-    .sort({ createdAt: -1 })
-    .limit(100)
+  const filter = { status: 'open' };
+
+  const q = String(req.query.q ?? '').trim().slice(0, 100);
+  if (q) {
+    const re = { $regex: escapeRegex(q), $options: 'i' };
+    filter.$or = [{ title: re }, { description: re }, { tags: re }];
+  }
+
+  const tags = String(req.query.tag ?? '')
+    .split(',')
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, MAX_TAGS);
+  if (tags.length) filter.tags = { $all: tags };
+
+  const budget = {};
+  const min = numberParam(req.query.minBudget);
+  const max = numberParam(req.query.maxBudget);
+  if (min !== null) budget.$gte = min;
+  if (max !== null) budget.$lte = max;
+  if (Object.keys(budget).length) filter.budget = budget;
+
+  const sort = SORTS[req.query.sort] || SORTS.newest;
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 12, 1), 50);
+
+  const total = await Gig.countDocuments(filter);
+  const pages = Math.max(Math.ceil(total / limit), 1);
+  const page = Math.min(Math.max(parseInt(req.query.page, 10) || 1, 1), pages);
+
+  const gigs = await Gig.find(filter)
+    .sort(sort)
+    .skip((page - 1) * limit)
+    .limit(limit)
     .populate('postedBy', 'name university')
     .lean();
-  res.json({ gigs });
+  res.json({ gigs, total, page, pages });
+});
+
+// GET /api/gigs/tags  (public) - most used tags on open gigs (for the filter chips)
+router.get('/tags', async (req, res) => {
+  const gigs = await Gig.find({ status: 'open' }).select('tags').lean();
+  const counts = {};
+  gigs.forEach((g) => g.tags.forEach((t) => { counts[t] = (counts[t] || 0) + 1; }));
+  const tags = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 20)
+    .map(([tag, count]) => ({ tag, count }));
+  res.json({ tags });
 });
 
 // GET /api/gigs/mine  (client) - my gigs with applicant counts
@@ -116,6 +170,53 @@ router.delete('/:id', protect, authorize('client'), validateId(), async (req, re
   await Message.deleteMany({ gig: gig._id });
   await gig.deleteOne();
   res.json({ message: 'Gig deleted' });
+});
+
+// GET /api/gigs/:id/applications  (owner) - everyone who applied to my gig
+router.get('/:id/applications', protect, authorize('client'), validateId(), async (req, res) => {
+  const gig = await Gig.findById(req.params.id);
+  if (!gig) return res.status(404).json({ message: 'Gig not found' });
+  if (!isOwner(gig, req.user)) {
+    return res.status(403).json({ message: 'Only the gig owner can view applicants' });
+  }
+  const applications = await Application.find({ gig: gig._id })
+    .sort({ createdAt: -1 })
+    .populate('applicant', 'name university skills')
+    .lean();
+  res.json({ applications: applications.filter((a) => a.applicant) });
+});
+
+// PATCH /api/gigs/:id/status  (owner) - move a gig through its lifecycle
+//   open -> in-progress happens automatically when an applicant is accepted
+//   in-progress -> completed   (work finished)
+//   in-progress -> open        (hire cancelled: the accepted applicant goes back to pending)
+const STATUS_TRANSITIONS = { 'in-progress': ['completed', 'open'] };
+
+router.patch('/:id/status', protect, authorize('client'), validateId(), async (req, res) => {
+  const gig = await Gig.findById(req.params.id);
+  if (!gig) return res.status(404).json({ message: 'Gig not found' });
+  if (!isOwner(gig, req.user)) {
+    return res.status(403).json({ message: 'You can only change the status of your own gigs' });
+  }
+
+  const next = String(req.body.status ?? '');
+  if (gig.status === 'open' && next === 'in-progress') {
+    return res.status(400).json({ message: 'Accept an applicant to start the work' });
+  }
+  if (!(STATUS_TRANSITIONS[gig.status] || []).includes(next)) {
+    return res.status(400).json({ message: `A ${gig.status} gig cannot be changed to "${next}"` });
+  }
+
+  if (next === 'open') {
+    const accepted = await Application.findOne({ gig: gig._id, status: 'accepted' });
+    if (accepted) {
+      accepted.status = 'pending';
+      await accepted.save();
+    }
+  }
+  gig.status = next;
+  await gig.save();
+  res.json({ gig });
 });
 
 // GET /api/gigs/:id/application  (logged in) - my application for this gig (or null)

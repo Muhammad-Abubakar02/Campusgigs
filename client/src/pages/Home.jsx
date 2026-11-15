@@ -4,7 +4,14 @@ import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import GigCard from '../components/GigCard';
 
-const CATEGORIES = ['Graphic design', 'Video editing', 'Notes & typing', 'Presentations', 'Web help', 'Tutoring'];
+const CATEGORIES = [
+  { label: 'Graphic design', tag: 'design' },
+  { label: 'Video editing', tag: 'video' },
+  { label: 'Notes & typing', tag: 'notes' },
+  { label: 'Presentations', tag: 'presentation' },
+  { label: 'Web help', tag: 'web' },
+  { label: 'Tutoring', tag: 'tutoring' },
+];
 
 const STEPS = [
   { n: '1', title: 'Create your account', text: 'Sign up as a client to hire, or as a freelancer to offer your skills.' },
@@ -17,7 +24,7 @@ export default function Home() {
   const [latest, setLatest] = useState([]);
 
   useEffect(() => {
-    api.get('/gigs').then((res) => setLatest(res.data.gigs.slice(0, 3))).catch(() => {});
+    api.get('/gigs?limit=3').then((res) => setLatest(res.data.gigs)).catch(() => {});
   }, []);
 
   return (
@@ -41,7 +48,7 @@ export default function Home() {
         </div>
         <div className="chips">
           {CATEGORIES.map((c) => (
-            <span key={c} className="chip">{c}</span>
+            <Link key={c.tag} to={`/gigs?tag=${c.tag}`} className="chip chip-btn">{c.label}</Link>
           ))}
         </div>
       </section>

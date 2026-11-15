@@ -6,6 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loggedOut, setLoggedOut] = useState(false); // true after an explicit logout
 
   // Restore session on refresh
   useEffect(() => {
@@ -23,6 +24,7 @@ export function AuthProvider({ children }) {
 
   const saveSession = (data) => {
     localStorage.setItem('token', data.token);
+    setLoggedOut(false);
     setUser(data.user);
   };
 
@@ -38,11 +40,12 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('token');
+    setLoggedOut(true);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, loggedOut, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
