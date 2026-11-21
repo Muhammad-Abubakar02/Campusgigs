@@ -2,8 +2,8 @@
 
 CampusGigs is a MERN-stack web application where university students can post short-term micro-gigs (graphic design, video editing, notes preparation, etc.) and other students can apply to them. It solves the problem of students having no dedicated platform to find and offer small paid tasks within their own campus community.
 
-**Live demo:** https://YOUR-APP.vercel.app  |  **API:** https://YOUR-SERVICE.onrender.com/api/health
-> The backend runs on a free Render instance that sleeps when idle, so the first request after a break can take up to a minute.
+**Live demo:** https://YOUR-APP.vercel.app  |  **API:** https://YOUR-API.vercel.app/api/health
+> Both parts run on Vercel's free plan; the first API request after a pause can take a few seconds (serverless cold start).
 
 **Internship:** Zynvex Solutions — Batch 5 Virtual Internship (Full Stack Development)
 **Intern:** Muhammad Abu Bakar | **Internship ID:** ZYNVEX-CERT-2182
@@ -49,7 +49,7 @@ CampusGigs is a MERN-stack web application where university students can post sh
 - A 19-case manual test checklist and a security checklist in [TESTING.md](TESTING.md).
 
 **Deployment**
-- MongoDB Atlas (database) + Render (Express API) + Vercel (React build). Step-by-step instructions, environment variables and troubleshooting are in [DEPLOYMENT.md](DEPLOYMENT.md).
+- MongoDB Atlas (database) + Vercel (Express API as a serverless function, `server/api/index.js`) + Vercel (React build). Step-by-step instructions, environment variables and troubleshooting are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -133,7 +133,7 @@ CampusGigs is a MERN-stack web application where university students can post sh
 | Backend | Node.js, Express 5, helmet, express-rate-limit |
 | Database | MongoDB Atlas, Mongoose |
 | Authentication | JSON Web Tokens (jsonwebtoken), bcryptjs |
-| Hosting | Render (API), Vercel (frontend), MongoDB Atlas (database) |
+| Hosting | Vercel (API and frontend), MongoDB Atlas (database) |
 | Tools | Git, GitHub, VS Code, nodemon |
 
 ---
@@ -153,6 +153,7 @@ campusgigs/
 │   │   ├── gigs.js                 # gig CRUD, search/filters, apply, applicants, status
 │   │   ├── applications.js         # my applications, withdraw, accept/reject
 │   │   └── messages.js             # inbox, conversations, send message
+│   ├── api/index.js                # Vercel serverless entry point
 │   ├── tests/smoke.js              # automated end-to-end API test
 │   ├── app.js                      # security middleware + routes
 │   └── index.js
@@ -330,7 +331,7 @@ npm run test:api
 ```
 
 ### Deployment
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render + Vercel + Atlas setup.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Vercel + Atlas setup.
 
 ### Troubleshooting
 - **`querySrv ECONNREFUSED` when connecting to Atlas:** some ISPs block SRV DNS lookups. The server sets public DNS servers (`8.8.8.8`, `1.1.1.1`) in `server/index.js` to avoid this.

@@ -6,7 +6,7 @@ Runs a full scenario against any running API: registration and login, validation
 ```bash
 cd server
 npm run test:api                                                   # local API on port 5000
-API_URL=https://<your-service>.onrender.com/api npm run test:api   # deployed API
+API_URL=https://<your-api>.vercel.app/api npm run test:api   # deployed API
 ```
 The script creates its own throw-away users (random emails) and deletes the gig it creates, so it can be run repeatedly.
 
