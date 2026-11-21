@@ -2,7 +2,7 @@
 
 CampusGigs is a MERN-stack web application where university students can post short-term micro-gigs (graphic design, video editing, notes preparation, etc.) and other students can apply to them. It solves the problem of students having no dedicated platform to find and offer small paid tasks within their own campus community.
 
-**Live demo:** https://YOUR-APP.vercel.app  |  **API:** https://YOUR-API.vercel.app/api/health
+**Live demo:** https://campusgigs-app.vercel.app  |  **API:** https://campusgigs-api.vercel.app/api/health
 > Both parts run on Vercel's free plan; the first API request after a pause can take a few seconds (serverless cold start).
 
 **Internship:** Zynvex Solutions — Batch 5 Virtual Internship (Full Stack Development)
@@ -356,8 +356,13 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for the Vercel + Atlas setup.
 
 ---
 
-## Future Improvements
-- Real-time chat with Socket.io instead of polling.
+## Scope Notes and Future Improvements
+
+**Current scope:** CampusGigs connects students: clients post gigs, freelancers apply, clients accept or reject, and both sides discuss the work in the in-app chat. Payment between the two students is arranged by them directly (for example cash, JazzCash or Easypaisa) after the work is completed; there is no in-app payment yet.
+
+**Planned improvements**
+- Freelancer profile page (bio, skills, portfolio links, completed gigs) that clients can view before accepting.
+- Payment tracking: client marks a gig as paid and the freelancer confirms; later an online payment gateway with escrow.
 - Ratings and reviews after a gig is completed.
+- Real-time chat with Socket.io instead of polling.
 - File attachments for deliverables and email notifications.
-- Profile pages with portfolio links for freelancers.
