@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -11,6 +11,7 @@ import CreateGig from './pages/CreateGig';
 import EditGig from './pages/EditGig';
 import Messages from './pages/Messages';
 import Conversation from './pages/Conversation';
+import NotFound from './pages/NotFound';
 
 export default function App() {
   return (
@@ -63,7 +64,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
     </>

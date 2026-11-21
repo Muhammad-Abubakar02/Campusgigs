@@ -242,3 +242,25 @@ a.tag:hover { background: var(--brand); color: #fff; }
 .filters-row input:focus, .chat-form input:focus, .filters-row select:focus {
   outline: 2px solid var(--brand-soft); border-color: var(--brand);
 }
+
+/* ---------- Module 4: responsive polish ---------- */
+img, svg { max-width: 100%; }
+.container { width: 100%; }
+@media (max-width: 720px) {
+  .navbar { flex-wrap: wrap; row-gap: 6px; }
+  .nav-links { gap: 12px; row-gap: 6px; }
+  .nav-links a:not(.btn) { font-size: 0.9rem; }
+  .page-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .details-head { flex-direction: column; gap: 12px; }
+  .card { padding: 18px; }
+  .filters { padding: 14px; }
+  .filters-row > * { flex: 1 1 100%; }
+  .list-actions { flex-wrap: wrap; }
+  .applicant-actions { width: 100%; }
+  .chat-body { height: 55vh; }
+  .hero h1 { font-size: 2rem; }
+}
+@media (max-width: 380px) {
+  .nav-links { gap: 8px; }
+  .btn-sm { padding: 6px 10px; }
+}

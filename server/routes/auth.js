@@ -20,6 +20,11 @@ const userPayload = (user) => ({
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role, university } = req.body;
+    // only plain strings are accepted (blocks NoSQL-injection style objects such as {"$gt": ""})
+    if ([name, email, password].some((v) => typeof v !== 'string') ||
+        (university !== undefined && typeof university !== 'string')) {
+      return res.status(400).json({ message: 'Name, email and password are required' });
+    }
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
@@ -47,7 +52,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password');

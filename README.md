@@ -2,6 +2,9 @@
 
 CampusGigs is a MERN-stack web application where university students can post short-term micro-gigs (graphic design, video editing, notes preparation, etc.) and other students can apply to them. It solves the problem of students having no dedicated platform to find and offer small paid tasks within their own campus community.
 
+**Live demo:** https://YOUR-APP.vercel.app  |  **API:** https://YOUR-SERVICE.onrender.com/api/health
+> The backend runs on a free Render instance that sleeps when idle, so the first request after a break can take up to a minute.
+
 **Internship:** Zynvex Solutions — Batch 5 Virtual Internship (Full Stack Development)
 **Intern:** Muhammad Abu Bakar | **Internship ID:** ZYNVEX-CERT-2182
 
@@ -14,7 +17,39 @@ CampusGigs is a MERN-stack web application where university students can post sh
 | **Module 1** | Oct 26 – Nov 01 | Setup, database schemas, authentication, protected routes, React layout | ✅ Complete |
 | **Module 2** | Nov 02 – Nov 08 | Gig CRUD, listing/details pages, apply to gig, student dashboard | ✅ Complete |
 | **Module 3** | Nov 09 – Nov 15 | Tag filters and search, applicant tracking, status management, messaging | ✅ Complete |
-| Module 4 | Nov 16 – Nov 22 | Responsive polish, testing, deployment, final documentation | ⏳ Upcoming |
+| **Module 4** | Nov 16 – Nov 22 | Responsive polish, testing, security checks, deployment, final documentation | ✅ Complete |
+
+---
+
+## Module 4 — Summary of Work
+
+### Objectives
+1. Polish the UI for phones and tablets.
+2. Harden the API (security checks) and prepare it for production.
+3. Add automated and manual testing.
+4. Deploy the application live and finish the documentation.
+
+### What was delivered
+
+**Security and production readiness (backend)**
+- `helmet` security headers, a 10 KB JSON body limit and **rate limiting** (30 login/register attempts and 600 API requests per 15 minutes per IP).
+- Login and registration accept only plain strings, which blocks NoSQL-injection style payloads such as `{"$gt": ""}`.
+- CORS accepts one or several allowed frontend origins (`CLIENT_URL`, comma separated).
+- `GET /api/health` endpoint for uptime checks.
+- Malformed JSON now returns `400` and oversized bodies `413` instead of a generic server error.
+- The server refuses to start without `MONGO_URI` / `JWT_SECRET` and prints a clear message.
+
+**Responsive UI and polish (frontend)**
+- Verified at 320, 390, 768 and 1024 px on every main page with no horizontal scrolling; filters, applicant cards, lists and the chat stack properly on small screens.
+- Proper **404 page**, page title and meta description, and SPA rewrite rules so refreshing a deep link works after deployment.
+- Logging out no longer leaves "return to" state behind for the next user.
+
+**Testing**
+- `npm run test:api` (in `server/`) — **40 automated end-to-end API checks** that can be run against the local or the deployed backend (see [TESTING.md](TESTING.md)).
+- A 19-case manual test checklist and a security checklist in [TESTING.md](TESTING.md).
+
+**Deployment**
+- MongoDB Atlas (database) + Render (Express API) + Vercel (React build). Step-by-step instructions, environment variables and troubleshooting are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -95,9 +130,10 @@ CampusGigs is a MERN-stack web application where university students can post sh
 | Layer | Technology |
 |---|---|
 | Frontend | React 19 (Vite), React Router, Axios |
-| Backend | Node.js, Express |
+| Backend | Node.js, Express 5, helmet, express-rate-limit |
 | Database | MongoDB Atlas, Mongoose |
 | Authentication | JSON Web Tokens (jsonwebtoken), bcryptjs |
+| Hosting | Render (API), Vercel (frontend), MongoDB Atlas (database) |
 | Tools | Git, GitHub, VS Code, nodemon |
 
 ---
@@ -117,15 +153,17 @@ campusgigs/
 │   │   ├── gigs.js                 # gig CRUD, search/filters, apply, applicants, status
 │   │   ├── applications.js         # my applications, withdraw, accept/reject
 │   │   └── messages.js             # inbox, conversations, send message
-│   ├── app.js
+│   ├── tests/smoke.js              # automated end-to-end API test
+│   ├── app.js                      # security middleware + routes
 │   └── index.js
 └── client/
     └── src/
         ├── components/             # Navbar (unread badge), ProtectedRoute, GigCard, GigForm, StatusBadge
         ├── context/                # AuthContext
         ├── pages/                  # Home, Login, Register, Dashboard, Gigs,
-        │                           # GigDetails, CreateGig, EditGig, Messages, Conversation
+        │                           # GigDetails, CreateGig, EditGig, Messages, Conversation, NotFound
         ├── utils/format.js         # currency/date helpers
+        ├── public/_redirects       # SPA rewrite (Netlify); vercel.json for Vercel
         ├── api.js                  # Axios instance with JWT interceptor
         └── App.jsx                 # Routes
 ```
@@ -180,6 +218,11 @@ Messages are used by the in-app messaging feature (Module 3). Conversations are 
 ## API Endpoints
 
 Base URL: `http://localhost:5000/api`
+
+### Health (Module 4)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/health` | Public | `{ "status": "ok" }` for uptime checks |
 
 ### Auth (Module 1)
 | Method | Endpoint | Access | Description |
@@ -240,6 +283,8 @@ Protected endpoints need the header `Authorization: Bearer <token>`.
 | 403 | Wrong role, not the owner of the gig / application, or not part of the conversation |
 | 404 | Gig / application not found or invalid id |
 | 409 | Email already registered, or already applied to this gig |
+| 413 | Request body larger than 10 KB |
+| 429 | Too many requests (rate limit) |
 
 ---
 
@@ -262,6 +307,8 @@ JWT_SECRET=your_long_random_secret
 JWT_EXPIRES_IN=7d
 CLIENT_URL=http://localhost:5173
 ```
+`CLIENT_URL` may contain several allowed frontend addresses separated by commas.
+
 Start the server:
 ```bash
 npm run dev
@@ -273,7 +320,17 @@ cd client
 npm install
 npm run dev
 ```
-Open http://localhost:5173.
+Open http://localhost:5173. For a deployed backend set `VITE_API_URL=https://<your-api>/api` (see `client/.env.example`).
+
+### 3. Run the automated API test (optional)
+With the backend running:
+```bash
+cd server
+npm run test:api
+```
+
+### Deployment
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render + Vercel + Atlas setup.
 
 ### Troubleshooting
 - **`querySrv ECONNREFUSED` when connecting to Atlas:** some ISPs block SRV DNS lookups. The server sets public DNS servers (`8.8.8.8`, `1.1.1.1`) in `server/index.js` to avoid this.
@@ -282,7 +339,7 @@ Open http://localhost:5173.
 
 ---
 
-## Testing Done (Modules 1–3)
+## Testing Done (Modules 1–4)
 
 - Registration and login for both roles; protected pages redirect to login when logged out.
 - **Client flow:** post a gig, see it on the dashboard, edit it, delete it; validation errors are shown in the form.
@@ -294,9 +351,12 @@ Open http://localhost:5173.
 - **Module 3 — status:** open → completed and manual open → in-progress are rejected; in-progress → open resets the accepted applicant; completed is final.
 - **Module 3 — messaging:** owner ⇄ applicant conversation, unread counts and read receipts, outsiders / other applicants / non-applicants blocked, empty and over-long messages rejected, messages removed when a gig is deleted.
 - Automated checks: 59 API checks for Module 3 (68 for Modules 1–2 still pass) and a 26-step browser test covering the full flow (search → apply → accept/reject → chat → complete) plus a mobile layout check.
+- **Module 4:** 40-check end-to-end API script (`npm run test:api`), layout checks at 320/390/768/1024 px on all main pages, rate-limit and malformed-input checks. Full details in [TESTING.md](TESTING.md).
 
 ---
 
-## Next Steps (Module 4)
-
-- **Module 4:** Responsive UI polish, end-to-end testing, security checks, deployment (Render + MongoDB Atlas), final documentation.
+## Future Improvements
+- Real-time chat with Socket.io instead of polling.
+- Ratings and reviews after a gig is completed.
+- File attachments for deliverables and email notifications.
+- Profile pages with portfolio links for freelancers.

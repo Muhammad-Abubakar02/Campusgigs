@@ -21,7 +21,6 @@ export default function Gigs() {
   const minBudget = params.get('minBudget') || '';
   const maxBudget = params.get('maxBudget') || '';
   const sort = params.get('sort') || 'newest';
-  const page = parseInt(params.get('page'), 10) || 1;
 
   const [draft, setDraft] = useState({ q, minBudget, maxBudget });
   const [data, setData] = useState({ gigs: [], total: 0, pages: 1, page: 1 });
